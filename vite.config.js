@@ -7,5 +7,12 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    // Optimizaciones para producción
+    minify: 'esbuild',
+    sourcemap: false,
+  },
 })
 

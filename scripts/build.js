@@ -14,21 +14,25 @@ const backendUrl = process.env.VITE_BACKEND_URL || 'https://puntored-transaction
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-// Verificar variables requeridas
+// Verificar variables requeridas - FALLAR si no están definidas
 if (!supabaseUrl) {
-  console.warn('⚠️  ADVERTENCIA: VITE_SUPABASE_URL no está definida');
+  console.error('❌ ERROR: VITE_SUPABASE_URL no está definida');
+  console.error('   Configura esta variable de entorno en Cloud Run antes de hacer el build');
+  process.exit(1);
 }
 
 if (!supabaseKey) {
-  console.warn('⚠️  ADVERTENCIA: VITE_SUPABASE_ANON_KEY no está definida');
+  console.error('❌ ERROR: VITE_SUPABASE_ANON_KEY no está definida');
+  console.error('   Configura esta variable de entorno en Cloud Run antes de hacer el build');
+  process.exit(1);
 }
 
 // Crear archivo .env.production temporal
 const envContent = `# Variables de entorno generadas automáticamente durante el build
 # Estas variables provienen de las configuradas en Cloud Run
 VITE_BACKEND_URL=${backendUrl}
-VITE_SUPABASE_URL=${supabaseUrl || ''}
-VITE_SUPABASE_ANON_KEY=${supabaseKey || ''}
+VITE_SUPABASE_URL=${supabaseUrl}
+VITE_SUPABASE_ANON_KEY=${supabaseKey}
 `;
 
 try {

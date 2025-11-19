@@ -1,4 +1,3 @@
-import { Smartphone } from 'lucide-react'
 
 const supplierColors = {
   '8753': { bg: 'from-red-500 to-red-600', icon: '📱' }, // Claro

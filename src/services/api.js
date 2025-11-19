@@ -5,6 +5,8 @@ import { logger, logApi } from '../utils/logger'
 const API_URL = import.meta.env.VITE_BACKEND_URL
 
 // Validar que la URL de la API esté definida
+// Usar console.error directamente para errores críticos de configuración
+// que deben mostrarse siempre, incluso en producción
 if (!API_URL) {
   console.error('❌ ERROR: VITE_BACKEND_URL no está configurada')
   throw new Error('Variable de entorno VITE_BACKEND_URL no está configurada')

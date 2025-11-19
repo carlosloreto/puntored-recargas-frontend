@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../services/supabase'
 import { apiService } from '../services/api'
 import { logger } from '../utils/logger'
@@ -8,6 +8,100 @@ const AuthContext = createContext({})
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  /**
+   * Refresca el token de Puntored para operaciones de negocio
+   * Memoizado con useCallback para evitar recreaciones innecesarias
+   */
+  const refreshPuntoredToken = useCallback(async () => {
+    try {
+      const token = await apiService.getAuthToken()
+      localStorage.setItem('puntoredToken', token)
+      logger.log('Token de Puntored actualizado')
+    } catch (error) {
+      logger.error('Error obteniendo token de Puntored:', error)
+    }
+  }, [])
+
+  /**
+   * Verifica la sesión actual del usuario
+   * Memoizado con useCallback para evitar recreaciones innecesarias
+   */
+  const checkUser = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      
+      if (session?.user) {
+        // Guardar JWT de Supabase (contiene userId y email)
+        localStorage.setItem('supabaseToken', session.access_token)
+        await refreshPuntoredToken()
+      }
+    } catch (error) {
+      logger.error('Error verificando sesión:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [refreshPuntoredToken])
+
+  /**
+   * Cierra la sesión del usuario
+   * Memoizado con useCallback para evitar recreaciones innecesarias
+   */
+  const signOut = useCallback(async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+    localStorage.removeItem('puntoredToken')
+    localStorage.removeItem('supabaseToken')
+  }, [])
+
+  /**
+   * Refresca el JWT de Supabase cuando está por expirar
+   * Esto permite mantener la sesión activa sin intervención del usuario
+   * Memoizado con useCallback para evitar recreaciones innecesarias
+   */
+  const refreshSupabaseSession = useCallback(async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.refreshSession()
+      
+      if (error) throw error
+      
+      if (session?.access_token) {
+        localStorage.setItem('supabaseToken', session.access_token)
+        setUser(session.user)
+        logger.log('JWT de Supabase actualizado')
+        return session.access_token
+      }
+      
+      return null
+    } catch (error) {
+      logger.error('Error refrescando sesión de Supabase:', error)
+      // Si falla el refresh, limpiar todo y forzar re-login
+      await signOut()
+      return null
+    }
+  }, [signOut])
+
+  const signUp = async (email, password) => {
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+      }
+    })
+    if (error) throw error
+    return data
+  }
+
+  const signIn = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    if (error) throw error
+    return data
+  }
 
   useEffect(() => {
     // Verificar sesión al cargar
@@ -36,88 +130,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       authListener?.subscription.unsubscribe()
     }
-  }, [])
-
-  const checkUser = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        // Guardar JWT de Supabase (contiene userId y email)
-        localStorage.setItem('supabaseToken', session.access_token)
-        await refreshPuntoredToken()
-      }
-    } catch (error) {
-      logger.error('Error verificando sesión:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const refreshPuntoredToken = async () => {
-    try {
-      const token = await apiService.getAuthToken()
-      localStorage.setItem('puntoredToken', token)
-      logger.log('Token de Puntored actualizado')
-    } catch (error) {
-      logger.error('Error obteniendo token de Puntored:', error)
-    }
-  }
-
-  /**
-   * Refresca el JWT de Supabase cuando está por expirar
-   * Esto permite mantener la sesión activa sin intervención del usuario
-   */
-  const refreshSupabaseSession = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.refreshSession()
-      
-      if (error) throw error
-      
-      if (session?.access_token) {
-        localStorage.setItem('supabaseToken', session.access_token)
-        setUser(session.user)
-        logger.log('JWT de Supabase actualizado')
-        return session.access_token
-      }
-      
-      return null
-    } catch (error) {
-      logger.error('Error refrescando sesión de Supabase:', error)
-      // Si falla el refresh, limpiar todo y forzar re-login
-      await signOut()
-      return null
-    }
-  }
-
-  const signUp = async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-      }
-    })
-    if (error) throw error
-    return data
-  }
-
-  const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    if (error) throw error
-    return data
-  }
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    localStorage.removeItem('puntoredToken')
-    localStorage.removeItem('supabaseToken')
-  }
+  }, [checkUser, refreshPuntoredToken])
 
   const value = {
     user,
@@ -132,6 +145,13 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
+/**
+ * Hook personalizado para acceder al contexto de autenticación
+ * Debe usarse dentro de AuthProvider
+ * 
+ * @returns {Object} Objeto con user, loading, signUp, signIn, signOut, etc.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {

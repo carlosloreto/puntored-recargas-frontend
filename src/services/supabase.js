@@ -4,6 +4,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Validar que las variables estén definidas
+// Usar console.error directamente para errores críticos de configuración
+// que deben mostrarse siempre, incluso en producción
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ ERROR: Variables de Supabase no están configuradas')
   console.error('VITE_SUPABASE_URL:', supabaseUrl ? '✅' : '❌')

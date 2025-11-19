@@ -12,10 +12,14 @@ export const logger = {
     }
   },
   
+  /**
+   * Log de errores
+   * Los errores críticos siempre se muestran, incluso en producción,
+   * para facilitar el debugging en producción
+   */
   error: (...args) => {
-    if (isDev) {
-      console.error(...args)
-    }
+    // Los errores críticos siempre se muestran, incluso en producción
+    console.error(...args)
   },
   
   warn: (...args) => {

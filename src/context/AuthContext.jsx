@@ -47,12 +47,37 @@ export const AuthProvider = ({ children }) => {
   /**
    * Cierra la sesión del usuario
    * Memoizado con useCallback para evitar recreaciones innecesarias
+   * Maneja el caso donde la sesión ya no existe (no lanza error)
+   * El logout se maneja completamente en el frontend con Supabase (JWT stateless)
    */
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    localStorage.removeItem('puntoredToken')
-    localStorage.removeItem('supabaseToken')
+    try {
+      // Verificar si hay sesión antes de intentar cerrarla
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      // Solo intentar cerrar sesión en Supabase si hay una sesión activa
+      if (session) {
+        const { error } = await supabase.auth.signOut()
+        // Si hay error pero es porque la sesión ya no existe, ignorarlo silenciosamente
+        // Solo loguear el error si no es AuthSessionMissingError
+        if (error && !error.message?.includes('Auth session missing') && !error.message?.includes('session')) {
+          logger.error('Error al cerrar sesión en Supabase:', error)
+        }
+      }
+    } catch (error) {
+      // Si falla el signOut de Supabase, continuar con la limpieza local
+      // Esto puede pasar si la sesión ya expiró o no existe
+      // No lanzar error porque el logout debe funcionar siempre (JWT stateless)
+      if (error.message && !error.message.includes('Auth session missing') && !error.message.includes('session')) {
+        logger.error('Error al cerrar sesión en Supabase:', error)
+      }
+    } finally {
+      // Siempre limpiar el estado local, incluso si falla el signOut de Supabase
+      // El backend usa JWT stateless, así que no necesita endpoint de logout
+      localStorage.removeItem('puntoredToken')
+      localStorage.removeItem('supabaseToken')
+      setUser(null)
+    }
   }, [])
 
   /**

@@ -14,12 +14,16 @@ export const Header = () => {
 
   const handleLogout = async () => {
     try {
+      // signOut siempre debe funcionar (maneja errores internamente)
       await signOut()
       toast.success('Sesión cerrada')
       navigate('/login')
     } catch (error) {
-      logger.error('Error al cerrar sesión:', error)
-      toast.error('Error al cerrar sesión')
+      // Este catch solo debería ejecutarse si hay un error inesperado
+      // signOut maneja silenciosamente los errores de sesión expirada
+      logger.error('Error inesperado al cerrar sesión:', error)
+      // Aún así, limpiar y redirigir
+      navigate('/login')
     }
   }
 

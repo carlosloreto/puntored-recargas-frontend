@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../../context/AuthContext'
 import { VALIDATION_RULES } from '../../utils/constants'
-import { logger } from '../../utils/logger'
+import { logger, logAuth } from '../../utils/logger'
 import toast from 'react-hot-toast'
 import { LogIn } from 'lucide-react'
 
@@ -14,13 +14,46 @@ export const Login = () => {
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const onSubmit = async (data) => {
+    // Validar que los campos no estén vacíos antes de intentar login
+    if (!data.email || !data.password) {
+      logger.warn('Intento de login con campos vacíos', {
+        category: 'auth-validation',
+        hasEmail: !!data.email,
+        hasPassword: !!data.password,
+      })
+      logAuth('login-attempt-empty-fields', {})
+      return
+    }
+
     setLoading(true)
+    const startTime = Date.now()
+    
     try {
+      logAuth('login-attempt', { email: data.email })
       await signIn(data.email, data.password)
+      
+      const duration = Date.now() - startTime
+      logger.info('Login exitoso', {
+        category: 'auth-login',
+        duration,
+        email: data.email,
+      })
+      
       toast.success('¡Bienvenido!')
       navigate('/')
     } catch (error) {
-      logger.error('Error en login:', error)
+      const duration = Date.now() - startTime
+      logger.error('Error en login:', error, {
+        category: 'auth-login-error',
+        duration,
+        email: data.email,
+        errorMessage: error.message,
+      })
+      logAuth('login-failed', { 
+        email: data.email, 
+        error: error.message,
+        duration,
+      })
       toast.error(error.message || 'Credenciales inválidas')
     } finally {
       setLoading(false)

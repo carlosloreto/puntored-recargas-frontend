@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../../context/AuthContext'
 import { VALIDATION_RULES } from '../../utils/constants'
-import { logger } from '../../utils/logger'
+import { logger, logAuth } from '../../utils/logger'
 import toast from 'react-hot-toast'
 import { UserPlus } from 'lucide-react'
 
@@ -16,18 +16,63 @@ export const Register = () => {
   const password = watch('password')
 
   const onSubmit = async (data) => {
+    // Validar que los campos no estén vacíos
+    if (!data.email || !data.password || !data.confirmPassword) {
+      logger.warn('Intento de registro con campos vacíos', {
+        category: 'auth-validation',
+        hasEmail: !!data.email,
+        hasPassword: !!data.password,
+        hasConfirmPassword: !!data.confirmPassword,
+      })
+      logAuth('register-attempt-empty-fields', {})
+      return
+    }
+
+    // Validar que las contraseñas coincidan
+    if (data.password !== data.confirmPassword) {
+      logger.warn('Intento de registro con contraseñas que no coinciden', {
+        category: 'auth-validation',
+        email: data.email,
+      })
+      logAuth('register-attempt-password-mismatch', { email: data.email })
+      return
+    }
+
     setLoading(true)
+    const startTime = Date.now()
+    
     try {
+      logAuth('register-attempt', { email: data.email })
+      
       // Registrar usuario
       await signUp(data.email, data.password)
       
       // Auto-login después del registro
       await signIn(data.email, data.password)
       
+      const duration = Date.now() - startTime
+      logger.info('Registro exitoso', {
+        category: 'auth-register',
+        duration,
+        email: data.email,
+      })
+      
       toast.success('¡Cuenta creada exitosamente!')
       navigate('/')
     } catch (error) {
-      logger.error('Error en registro:', error)
+      const duration = Date.now() - startTime
+      logger.error('Error en registro:', error, {
+        category: 'auth-register-error',
+        duration,
+        email: data.email,
+        errorMessage: error.message,
+      })
+      logAuth('register-failed', { 
+        email: data.email, 
+        error: error.message,
+        duration,
+      })
+      
       if (error.message.includes('already registered')) {
         toast.error('Este correo ya está registrado')
       } else {

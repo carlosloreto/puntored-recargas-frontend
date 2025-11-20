@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Search, X, Filter, Calendar, CheckCircle, Building2 } from 'lucide-react'
-import { apiService } from '../../services/api'
+import { getSuppliers } from '../../utils/suppliersCache'
 import { logger } from '../../utils/logger'
 
 export const TransactionFilters = ({ onFilter }) => {
@@ -18,7 +18,7 @@ export const TransactionFilters = ({ onFilter }) => {
 
   const loadSuppliers = async () => {
     try {
-      const data = await apiService.getSuppliers()
+      const data = await getSuppliers() // Usa el caché, solo carga una vez
       setSuppliers(data)
     } catch (error) {
       logger.error('Error cargando proveedores:', error)

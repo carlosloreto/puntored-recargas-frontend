@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../services/supabase'
 import { apiService } from '../services/api'
-import { logger } from '../utils/logger'
+import { logger, logAuth } from '../utils/logger'
 
 const AuthContext = createContext({})
 
@@ -18,8 +18,13 @@ export const AuthProvider = ({ children }) => {
       const token = await apiService.getAuthToken()
       localStorage.setItem('puntoredToken', token)
       logger.log('Token de Puntored actualizado')
+      logAuth('token-refreshed', { tokenType: 'puntored', success: true })
     } catch (error) {
-      logger.error('Error obteniendo token de Puntored:', error)
+      logger.error('Error obteniendo token de Puntored:', error, {
+        category: 'auth-token-refresh',
+        tokenType: 'puntored',
+      })
+      logAuth('token-refresh-failed', { tokenType: 'puntored', error: error.message })
     }
   }, [])
 
@@ -35,10 +40,15 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         // Guardar JWT de Supabase (contiene userId y email)
         localStorage.setItem('supabaseToken', session.access_token)
+        logAuth('session-checked', { hasSession: true, userId: session.user.id })
         await refreshPuntoredToken()
+      } else {
+        logAuth('session-checked', { hasSession: false })
       }
     } catch (error) {
-      logger.error('Error verificando sesión:', error)
+      logger.error('Error verificando sesión:', error, {
+        category: 'auth-session-check',
+      })
     } finally {
       setLoading(false)
     }
@@ -51,6 +61,7 @@ export const AuthProvider = ({ children }) => {
    * El logout se maneja completamente en el frontend con Supabase (JWT stateless)
    */
   const signOut = useCallback(async () => {
+    const userId = user?.id
     try {
       // Verificar si hay sesión antes de intentar cerrarla
       const { data: { session } } = await supabase.auth.getSession()
@@ -61,16 +72,25 @@ export const AuthProvider = ({ children }) => {
         // Si hay error pero es porque la sesión ya no existe, ignorarlo silenciosamente
         // Solo loguear el error si no es AuthSessionMissingError
         if (error && !error.message?.includes('Auth session missing') && !error.message?.includes('session')) {
-          logger.error('Error al cerrar sesión en Supabase:', error)
+          logger.error('Error al cerrar sesión en Supabase:', error, {
+            category: 'auth-signout',
+          })
+        } else {
+          logAuth('signout-success', { userId })
         }
+      } else {
+        logAuth('signout-no-session', { userId })
       }
     } catch (error) {
       // Si falla el signOut de Supabase, continuar con la limpieza local
       // Esto puede pasar si la sesión ya expiró o no existe
       // No lanzar error porque el logout debe funcionar siempre (JWT stateless)
       if (error.message && !error.message.includes('Auth session missing') && !error.message.includes('session')) {
-        logger.error('Error al cerrar sesión en Supabase:', error)
+        logger.error('Error al cerrar sesión en Supabase:', error, {
+          category: 'auth-signout',
+        })
       }
+      logAuth('signout-error', { userId, error: error.message })
     } finally {
       // Siempre limpiar el estado local, incluso si falla el signOut de Supabase
       // El backend usa JWT stateless, así que no necesita endpoint de logout
@@ -78,7 +98,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('supabaseToken')
       setUser(null)
     }
-  }, [])
+  }, [user])
 
   /**
    * Refresca el JWT de Supabase cuando está por expirar
@@ -95,12 +115,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('supabaseToken', session.access_token)
         setUser(session.user)
         logger.log('JWT de Supabase actualizado')
+        logAuth('supabase-session-refreshed', { success: true, userId: session.user.id })
         return session.access_token
       }
       
       return null
     } catch (error) {
-      logger.error('Error refrescando sesión de Supabase:', error)
+      logger.error('Error refrescando sesión de Supabase:', error, {
+        category: 'auth-session-refresh',
+        tokenType: 'supabase',
+      })
+      logAuth('supabase-session-refresh-failed', { error: error.message })
       // Si falla el refresh, limpiar todo y forzar re-login
       await signOut()
       return null
@@ -108,24 +133,42 @@ export const AuthProvider = ({ children }) => {
   }, [signOut])
 
   const signUp = async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
+    try {
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+        }
+      })
+      if (error) {
+        logAuth('signup-failed', { email, error: error.message })
+        throw error
       }
-    })
-    if (error) throw error
-    return data
+      logAuth('signup-success', { email, userId: data.user?.id })
+      return data
+    } catch (error) {
+      logger.error('Error en signUp:', error, { category: 'auth-signup' })
+      throw error
+    }
   }
 
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) {
+        logAuth('signin-failed', { email, error: error.message })
+        throw error
+      }
+      logAuth('signin-success', { email, userId: data.user?.id })
+      return data
+    } catch (error) {
+      logger.error('Error en signIn:', error, { category: 'auth-signin' })
+      throw error
+    }
   }
 
   useEffect(() => {

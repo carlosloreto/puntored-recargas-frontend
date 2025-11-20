@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiService } from '../../services/api'
 import { VALIDATION_RULES } from '../../utils/constants'
 import { SupplierCard } from './SupplierCard'
 import { useAuthToken } from '../../hooks/useAuthToken'
+import { getSuppliers } from '../../utils/suppliersCache'
+import { clearTransactionsCache } from '../../utils/transactionsCache'
 import { logger } from '../../utils/logger'
 import toast from 'react-hot-toast'
 import { Smartphone, DollarSign, Building2, Send, Sparkles } from 'lucide-react'
@@ -20,27 +22,29 @@ export const RechargeForm = ({ onSuccess }) => {
   const phoneNumber = watch('phoneNumber')
 
   useEffect(() => {
-    // Solo cargar suppliers cuando el token esté listo
-    if (isReady && puntoredToken) {
-      loadSuppliers()
-    }
-  }, [isReady, puntoredToken])
-
-  useEffect(() => {
     setPhoneLength(phoneNumber?.length || 0)
   }, [phoneNumber])
 
-  const loadSuppliers = async () => {
+  const loadSuppliers = useCallback(async () => {
     try {
-      const data = await apiService.getSuppliers()
+      const data = await getSuppliers() // Usa el caché, solo carga una vez
       setSuppliers(data)
       setLoadingSuppliers(false)
     } catch (error) {
-      logger.error('Error cargando proveedores:', error)
+      logger.error('Error cargando proveedores:', error, {
+        category: 'suppliers-load-error',
+      })
       toast.error('Error cargando proveedores. Por favor, recarga la página.')
       setLoadingSuppliers(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    // Solo cargar suppliers cuando el token esté listo (una sola vez)
+    if (isReady && puntoredToken) {
+      loadSuppliers()
+    }
+  }, [isReady, puntoredToken, loadSuppliers])
 
   const handleSupplierClick = (supplierId) => {
     setSelectedSupplier(supplierId)
@@ -48,17 +52,79 @@ export const RechargeForm = ({ onSuccess }) => {
   }
 
   const onSubmit = async (data) => {
+    // Validar campos antes de enviar
+    if (!data.phoneNumber || !data.amount) {
+      logger.warn('Intento de recarga con campos vacíos', {
+        category: 'recharge-validation',
+        hasPhoneNumber: !!data.phoneNumber,
+        hasAmount: !!data.amount,
+        hasSupplier: !!selectedSupplier,
+      })
+      return
+    }
+
     if (!selectedSupplier) {
+      logger.warn('Intento de recarga sin seleccionar operador', {
+        category: 'recharge-validation',
+        phoneNumber: data.phoneNumber,
+        amount: data.amount,
+      })
       toast.error('Por favor selecciona un operador')
+      return
+    }
+
+    // Validar formato del teléfono
+    if (data.phoneNumber.length !== 10) {
+      logger.warn('Intento de recarga con teléfono inválido', {
+        category: 'recharge-validation',
+        phoneLength: data.phoneNumber.length,
+        phoneNumber: data.phoneNumber,
+      })
+      return
+    }
+
+    // Validar monto
+    const amount = parseInt(data.amount)
+    if (isNaN(amount) || amount < 1000 || amount > 100000) {
+      logger.warn('Intento de recarga con monto inválido', {
+        category: 'recharge-validation',
+        amount: data.amount,
+        parsedAmount: amount,
+      })
       return
     }
     
     setLoading(true)
+    const startTime = Date.now()
+    
     try {
+      logger.info('Iniciando proceso de recarga', {
+        category: 'recharge-submit',
+        phoneNumber: data.phoneNumber,
+        amount,
+        supplierId: selectedSupplier,
+      })
+
       const result = await apiService.createRecharge({
         phoneNumber: data.phoneNumber,
-        amount: parseInt(data.amount),
+        amount,
         supplierId: selectedSupplier,
+      })
+      
+      const duration = Date.now() - startTime
+      logger.info('Recarga exitosa', {
+        category: 'recharge-success',
+        transactionId: result?.id || result?.transactionId,
+        phoneNumber: data.phoneNumber,
+        amount,
+        supplierId: selectedSupplier,
+        duration,
+      })
+      
+      // Limpiar caché de transacciones para que se actualicen cuando vaya al historial
+      clearTransactionsCache()
+      logger.info('Caché de transacciones limpiado después de recarga exitosa', {
+        category: 'transactions-cache',
       })
       
       toast.success('¡Recarga exitosa!')
@@ -67,7 +133,19 @@ export const RechargeForm = ({ onSuccess }) => {
       setPhoneLength(0)
       onSuccess(result)
     } catch (error) {
-      logger.error('Error en recarga:', error)
+      const duration = Date.now() - startTime
+      logger.error('Error en recarga:', error, {
+        category: 'recharge-error',
+        duration,
+        phoneNumber: data.phoneNumber,
+        amount,
+        supplierId: selectedSupplier,
+        errorType: error.code || error.message,
+        hasResponse: !!error.response,
+        status: error.response?.status,
+        responseData: error.response?.data,
+      })
+      
       const errorData = error.response?.data
       
       if (errorData?.errors && Array.isArray(errorData.errors)) {

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { apiService } from '../../services/api'
+import { useState, useEffect, useCallback } from 'react'
+import { getTransactions, refreshTransactions } from '../../utils/transactionsCache'
 import { TransactionCard } from './TransactionCard'
 import { TransactionFilters } from './TransactionFilters'
 import { logger } from '../../utils/logger'
@@ -9,36 +9,74 @@ import toast from 'react-hot-toast'
 export const TransactionList = () => {
   const [transactions, setTransactions] = useState([])
   const [filteredTransactions, setFilteredTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true) // Cargar automáticamente la primera vez
   const [refreshing, setRefreshing] = useState(false)
   
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
-  useEffect(() => {
-    loadTransactions()
-  }, [])
-
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
+    setLoading(true)
     try {
-      const data = await apiService.getTransactions()
+      // Usa el caché - solo carga la primera vez, luego usa caché
+      const data = await getTransactions()
       setTransactions(data)
       setFilteredTransactions(data)
       setCurrentPage(1) // Reset a la primera página
     } catch (error) {
-      logger.error('Error cargando transacciones:', error)
+      logger.error('Error cargando transacciones:', error, {
+        category: 'transactions-load-error',
+        errorType: error.code || error.message,
+        hasResponse: !!error.response,
+        status: error.response?.status,
+      })
       toast.error('Error al cargar el historial')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Cargar transacciones automáticamente SOLO la primera vez (usa caché)
+  useEffect(() => {
+    loadTransactions()
+  }, [loadTransactions])
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await loadTransactions()
-    setRefreshing(false)
-    toast.success('Historial actualizado')
+    const startTime = Date.now()
+    try {
+      logger.info('Actualizando transacciones (forzar recarga)', {
+        category: 'transactions-refresh',
+      })
+      
+      // Forzar recarga (limpia caché y carga de nuevo)
+      const data = await refreshTransactions()
+      const duration = Date.now() - startTime
+      
+      logger.info('Transacciones actualizadas exitosamente', {
+        category: 'transactions-refresh',
+        count: data?.length || 0,
+        duration,
+      })
+      
+      setTransactions(data)
+      setFilteredTransactions(data)
+      setCurrentPage(1) // Reset a la primera página
+      toast.success('Historial actualizado')
+    } catch (error) {
+      const duration = Date.now() - startTime
+      logger.error('Error actualizando transacciones:', error, {
+        category: 'transactions-refresh-error',
+        duration,
+        errorType: error.code || error.message,
+        hasResponse: !!error.response,
+        status: error.response?.status,
+      })
+      toast.error('Error al actualizar el historial')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const handleFilter = (filters) => {
@@ -109,15 +147,6 @@ export const TransactionList = () => {
     return pages
   }
 
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary mx-auto"></div>
-        <p className="mt-4 text-gray-600 text-lg">Cargando historial...</p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Header con filtros y refresh */}
@@ -142,18 +171,32 @@ export const TransactionList = () => {
       {/* Filtros */}
       <TransactionFilters onFilter={handleFilter} />
 
+      {/* Loading state */}
+      {loading && (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-lg">Cargando historial...</p>
+        </div>
+      )}
+
       {/* Lista de transacciones */}
-      {filteredTransactions.length === 0 ? (
+      {!loading && transactions.length === 0 && filteredTransactions.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-2xl shadow">
           <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-600 text-lg">No hay transacciones para mostrar</p>
           <p className="text-gray-500 text-sm mt-2">
-            {transactions.length === 0 
-              ? 'Realiza tu primera recarga para verla aquí' 
-              : 'Intenta cambiar los filtros'}
+            Presiona &quot;Actualizar&quot; para cargar el historial
           </p>
         </div>
-      ) : (
+      ) : !loading && filteredTransactions.length === 0 && transactions.length > 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl shadow">
+          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-600 text-lg">No hay transacciones que coincidan con los filtros</p>
+          <p className="text-gray-500 text-sm mt-2">
+            Intenta cambiar los filtros
+          </p>
+        </div>
+      ) : !loading && filteredTransactions.length > 0 && (
         <>
           <div className="space-y-3">
             {currentTransactions.map((transaction) => (

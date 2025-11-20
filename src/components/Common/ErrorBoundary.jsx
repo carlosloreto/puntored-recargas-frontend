@@ -1,5 +1,6 @@
 import React from 'react'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { cloudLogger } from '../../services/cloudLogger'
 
 /**
  * Error Boundary para capturar errores de renderizado en componentes hijos
@@ -35,6 +36,8 @@ class ErrorBoundary extends React.Component {
   /**
    * Se ejecuta después de que un error ha sido lanzado por un componente descendiente
    * Útil para logging de errores
+   * 
+   * En producción, envía el error a Google Cloud Logging para monitoreo
    */
   componentDidCatch(error, errorInfo) {
     // Log del error para debugging (solo en desarrollo)
@@ -47,8 +50,23 @@ class ErrorBoundary extends React.Component {
       errorInfo
     })
 
-    // Aquí podrías enviar el error a un servicio de logging (Sentry, etc.)
-    // Ejemplo: logErrorToService(error, errorInfo)
+    // Enviar error a Cloud Logging en producción
+    // Esto permite monitorear errores de renderizado en producción
+    if (import.meta.env.PROD) {
+      cloudLogger.error(
+        'Error capturado por ErrorBoundary',
+        error,
+        {
+          category: 'error-boundary',
+          componentStack: errorInfo?.componentStack,
+          errorBoundary: true,
+          // Información adicional del contexto
+          userAgent: navigator.userAgent,
+          url: window.location.href,
+          timestamp: new Date().toISOString(),
+        }
+      )
+    }
   }
 
   handleReset = () => {

@@ -22,6 +22,9 @@ const api = axios.create({
 
 // Interceptor para agregar tokens automáticamente
 api.interceptors.request.use((config) => {
+  // Agregar timestamp para medir duración de la petición
+  config.metadata = { startTime: Date.now() }
+  
   const puntoredToken = localStorage.getItem('puntoredToken')
   const supabaseToken = localStorage.getItem('supabaseToken')  // JWT de Supabase
   
@@ -32,16 +35,21 @@ api.interceptors.request.use((config) => {
   if (needsSupabaseAuth && supabaseToken) {
     // Para recharges y transactions: JWT de Supabase
     config.headers.Authorization = `Bearer ${supabaseToken}`
-    logApi('request', config.url, { auth: 'Supabase JWT' })
+    logApi('request', config.url, { auth: 'Supabase JWT', method: config.method })
   } else if (needsPuntoredAuth && puntoredToken) {
     // Para suppliers: Token de Puntored
     config.headers.Authorization = puntoredToken
-    logApi('request', config.url, { auth: 'Puntored Token' })
+    logApi('request', config.url, { auth: 'Puntored Token', method: config.method })
+  } else {
+    logApi('request', config.url, { auth: 'none', method: config.method })
   }
   
   return config
 }, (error) => {
-  logger.error('Error en request interceptor:', error)
+  logger.error('Error en request interceptor:', error, {
+    category: 'api-request-error',
+    errorType: error.code || error.message,
+  })
   return Promise.reject(error)
 })
 
@@ -62,13 +70,61 @@ const processQueue = (error, token = null) => {
 
 // Interceptor para manejar errores y refresh automático
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log de respuesta exitosa con duración
+    const startTime = response.config.metadata?.startTime
+    if (startTime) {
+      const duration = Date.now() - startTime
+      
+      // Log si la respuesta es lenta (> 2 segundos)
+      if (duration > 2000) {
+        logger.warn('Respuesta lenta de API', {
+          category: 'api-slow-response',
+          url: response.config.url,
+          method: response.config.method,
+          duration,
+          status: response.status,
+        })
+      }
+      
+      // Log estructurado de respuesta exitosa
+      if (import.meta.env.PROD) {
+        logApi('response', response.config.url, {
+          method: response.config.method,
+          status: response.status,
+          duration,
+        })
+      }
+    }
+    
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
+    const startTime = originalRequest?.metadata?.startTime
+    const duration = startTime ? Date.now() - startTime : null
+    
+    // Error de red/conexión (sin respuesta del servidor)
+    if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+      logger.error('Error de conexión a la API', error, {
+        category: 'api-network-error',
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+        duration,
+        errorCode: error.code,
+      })
+      return Promise.reject(new Error('Error de conexión. Verifica tu internet.'))
+    }
     
     // Error de timeout
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      logger.error('Request timeout:', originalRequest.url)
+      logger.error('Request timeout:', originalRequest?.url, {
+        category: 'api-timeout',
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+        timeout: API_TIMEOUT,
+        duration,
+      })
       return Promise.reject(new Error('La petición tardó demasiado. Intenta de nuevo.'))
     }
 
@@ -104,6 +160,14 @@ api.interceptors.response.use(
         
         logger.log('Token refrescado automáticamente')
         
+        // Log estructurado del refresh exitoso
+        if (import.meta.env.PROD) {
+          logApi('refresh-token', 'supabase', {
+            success: true,
+            retryUrl: originalRequest.url,
+          })
+        }
+        
         // Actualizar el header de la petición original
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         
@@ -119,7 +183,11 @@ api.interceptors.response.use(
         processQueue(refreshError, null)
         isRefreshing = false
         
-        logger.error('Error al refrescar token:', refreshError)
+        logger.error('Error al refrescar token:', refreshError, {
+          category: 'auth-refresh-failed',
+          originalUrl: originalRequest.url,
+          redirectToLogin: true,
+        })
         
         // Limpiar TODOS los tokens
         localStorage.removeItem('puntoredToken')
@@ -134,11 +202,14 @@ api.interceptors.response.use(
       }
     }
 
-    // Otros errores
-    logger.error('API Error:', {
+    // Otros errores - Log estructurado con contexto completo
+    logger.error('API Error:', error, {
+      category: 'api-error',
       status: error.response?.status,
-      message: error.message,
-      url: originalRequest?.url
+      statusText: error.response?.statusText,
+      url: originalRequest?.url,
+      method: originalRequest?.method,
+      responseData: error.response?.data,
     })
     
     return Promise.reject(error)

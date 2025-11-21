@@ -104,14 +104,14 @@ const createStructuredLog = (severity, message, metadata = {}) => {
   }
 
   // En producción, usar formato JSON estructurado que Cloud Run captura automáticamente
-  // En desarrollo, usar formato más legible
+  // En desarrollo, usar formato visual con emojis como el backend
   if (isProduction || isCloudRun) {
     // Cloud Run captura logs de stdout/stderr automáticamente
     // Usar console.log con JSON para que Cloud Logging lo parse correctamente
     const logMethod = severity === 'ERROR' ? console.error : console.log
     logMethod(JSON.stringify(logEntry))
   } else {
-    // En desarrollo, formato más legible
+    // En desarrollo, formato visual con emojis (coherente con backend)
     const emoji = {
       ERROR: '❌',
       WARNING: '⚠️',
@@ -119,7 +119,18 @@ const createStructuredLog = (severity, message, metadata = {}) => {
       DEBUG: '🔍',
     }[severity] || '📝'
 
-    console.log(`${emoji} [${severity}] ${message}`, metadata)
+    // Si tiene categoría, usar emoji específico
+    const categoryEmoji = {
+      authentication: '🔑',
+      api: '🌐',
+      'error-boundary': '🛡️',
+      validation: '⚠️',
+      security: '🔒',
+      success: '✅',
+    }[metadata.category]
+
+    const displayEmoji = categoryEmoji || emoji
+    console.log(`${displayEmoji} ${message}`, metadata)
   }
 }
 
@@ -141,12 +152,12 @@ export const cloudLogger = {
       ...context,
       ...(error instanceof Error
         ? {
-            error: {
-              name: error.name,
-              message: error.message,
-              stack: error.stack,
-            },
-          }
+          error: {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          },
+        }
         : error),
     }
 

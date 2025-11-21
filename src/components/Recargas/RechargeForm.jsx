@@ -52,17 +52,7 @@ export const RechargeForm = ({ onSuccess }) => {
   }
 
   const onSubmit = async (data) => {
-    // Validar campos antes de enviar
-    if (!data.phoneNumber || !data.amount) {
-      logger.warn('Intento de recarga con campos vacíos', {
-        category: 'recharge-validation',
-        hasPhoneNumber: !!data.phoneNumber,
-        hasAmount: !!data.amount,
-        hasSupplier: !!selectedSupplier,
-      })
-      return
-    }
-
+    // Validar que se haya seleccionado un proveedor
     if (!selectedSupplier) {
       logger.warn('Intento de recarga sin seleccionar operador', {
         category: 'recharge-validation',
@@ -73,29 +63,9 @@ export const RechargeForm = ({ onSuccess }) => {
       return
     }
 
-    // Validar formato del teléfono
-    if (data.phoneNumber.length !== 10) {
-      logger.warn('Intento de recarga con teléfono inválido', {
-        category: 'recharge-validation',
-        phoneLength: data.phoneNumber.length,
-        phoneNumber: data.phoneNumber,
-      })
-      return
-    }
-
-    // Validar monto
-    const amount = parseInt(data.amount)
-    if (isNaN(amount) || amount < 1000 || amount > 100000) {
-      logger.warn('Intento de recarga con monto inválido', {
-        category: 'recharge-validation',
-        amount: data.amount,
-        parsedAmount: amount,
-      })
-      return
-    }
-
     setLoading(true)
     const startTime = Date.now()
+    const amount = parseInt(data.amount)
 
     try {
       logger.info('Iniciando proceso de recarga', {

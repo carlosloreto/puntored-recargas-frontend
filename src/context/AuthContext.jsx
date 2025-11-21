@@ -7,6 +7,7 @@ const AuthContext = createContext({})
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [supabaseToken, setSupabaseToken] = useState(null)
 
   /**
    * Verifica la sesión actual del usuario
@@ -20,6 +21,7 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         // Guardar JWT de Supabase (contiene userId y email)
         localStorage.setItem('supabaseToken', session.access_token)
+        setSupabaseToken(session.access_token)
         logAuth('session-checked', { hasSession: true, userId: session.user.id })
       } else {
         logAuth('session-checked', { hasSession: false })
@@ -74,6 +76,7 @@ export const AuthProvider = ({ children }) => {
       // Siempre limpiar el estado local, incluso si falla el signOut de Supabase
       // El backend usa JWT stateless, así que no necesita endpoint de logout
       localStorage.removeItem('supabaseToken')
+      setSupabaseToken(null)
       setUser(null)
     }
   }, [user])
@@ -91,6 +94,7 @@ export const AuthProvider = ({ children }) => {
 
       if (session?.access_token) {
         localStorage.setItem('supabaseToken', session.access_token)
+        setSupabaseToken(session.access_token)
         setUser(session.user)
         logger.log('JWT de Supabase actualizado')
         logAuth('supabase-session-refreshed', { success: true, userId: session.user.id })
@@ -161,9 +165,11 @@ export const AuthProvider = ({ children }) => {
         if (session?.user) {
           // Guardar JWT de Supabase (contiene userId y email)
           localStorage.setItem('supabaseToken', session.access_token)
+          setSupabaseToken(session.access_token)
         } else {
           // Limpiar tokens cuando no hay sesión
           localStorage.removeItem('supabaseToken')
+          setSupabaseToken(null)
         }
 
         setLoading(false)
@@ -178,6 +184,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    supabaseToken,
     signUp,
     signIn,
     signOut,

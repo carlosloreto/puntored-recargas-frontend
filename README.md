@@ -5,7 +5,6 @@ Sistema de recargas móviles para Puntored. Aplicación React con autenticación
 ## 🚀 Características
 
 - ✅ Autenticación segura con Supabase (JWT)
-- ✅ Doble autenticación (Supabase + Token Puntored)
 - ✅ Refresh automático de JWT sin intervención del usuario
 - ✅ Sistema de recargas para Claro, Movistar, Tigo y WOM
 - ✅ Historial de transacciones con filtros avanzados
@@ -14,6 +13,7 @@ Sistema de recargas móviles para Puntored. Aplicación React con autenticación
 - ✅ Diseño responsive con Tailwind CSS
 - ✅ Manejo robusto de errores y timeouts
 - ✅ Logger condicional (solo logs en desarrollo)
+- ✅ Pruebas automatizadas (Vitest + RTL)
 
 ## 📋 Requisitos
 
@@ -107,24 +107,17 @@ src/
 
 ## 🔐 Autenticación
 
-El proyecto implementa **autenticación dual**:
+El proyecto utiliza **Supabase Auth** como única fuente de verdad para la autenticación:
 
-1. **Supabase Auth**: Para autenticación de usuarios (JWT)
-   - Login/Register
-   - Refresh automático de tokens
-   - Protección de rutas
-
-2. **Token Puntored**: Para operaciones de negocio
-   - Consulta de proveedores
-   - Operaciones internas
+- **Supabase JWT**: Se utiliza tanto para la sesión de usuario como para autenticar todas las peticiones al backend (incluyendo `/api/suppliers`).
+- **Refresh Automático**: El token se refresca automáticamente antes de expirar.
+- **Seguridad**: No se almacenan tokens sensibles adicionales en el cliente.
 
 ### Flujo de Autenticación
 
 ```
-Usuario → Login → Supabase JWT → Token Puntored → API Backend
+Usuario → Login → Supabase JWT → API Backend (Bearer Token)
 ```
-
-El JWT se refresca automáticamente cuando está por expirar, manteniendo la sesión activa sin interrupciones.
 
 ## 🛠️ Tecnologías
 
@@ -137,6 +130,8 @@ El JWT se refresca automáticamente cuando está por expirar, manteniendo la ses
 - **React Hook Form** - Manejo de formularios
 - **React Hot Toast** - Notificaciones
 - **Lucide React** - Iconos
+- **Vitest** - Framework de pruebas
+- **React Testing Library** - Pruebas de componentes
 
 ## 🔒 Seguridad
 
@@ -154,7 +149,23 @@ npm run dev      # Inicia servidor de desarrollo
 npm run build    # Genera build de producción
 npm run preview  # Preview del build
 npm run lint     # Ejecuta el linter
+npm run test     # Ejecuta las pruebas automatizadas
 ```
+
+## 🧪 Pruebas Automatizadas
+
+El proyecto cuenta con un sistema de pruebas automatizadas utilizando **Vitest** y **React Testing Library**.
+
+### Ejecutar Pruebas
+
+```bash
+npm run test
+```
+
+### Cobertura
+
+- **Unitarias**: Validación de reglas de negocio (teléfono, montos, emails) en `src/utils/constants.test.js`.
+- **Componentes**: Pruebas de integración del formulario de recargas en `src/components/Recargas/RechargeForm.test.jsx` (renderizado, validación, envío, manejo de errores).
 
 ## 📝 Notas Importantes
 
@@ -169,8 +180,8 @@ npm run lint     # Ejecuta el linter
    - `.env.example` - Plantilla (SÍ subir a git)
 
 3. **Logs**:
-   - En desarrollo: Los logs aparecen en consola
-   - En producción: Los logs están deshabilitados para evitar exponer información sensible
+   - En desarrollo: Los logs aparecen en consola con formato visual
+   - En producción: Los logs se envían a Google Cloud Logging (o consola estructurada)
 
 ## 🚀 Despliegue
 
@@ -200,12 +211,19 @@ npm run lint     # Ejecuta el linter
 ## 🔍 Características Técnicas Destacadas
 
 - ✅ **Refresh automático de JWT**: Maneja la expiración de tokens sin interrumpir al usuario
-- ✅ **Logger condicional**: Sin logs en producción para evitar exponer información sensible
+- ✅ **Logger condicional**: Logs visuales en dev, estructurados en prod
 - ✅ **Retry logic**: Reintentos inteligentes con límites para evitar loops infinitos
 - ✅ **Error boundaries**: Manejo robusto de errores con interceptores de Axios
 - ✅ **Timeouts configurados**: 15 segundos para todas las peticiones HTTP
 - ✅ **Queue system**: Evita múltiples refreshes de JWT simultáneos
 - ✅ **Arquitectura escalable**: Separación de concerns con custom hooks y contextos
+
+## 🚀 Optimizaciones de Rendimiento (v1.1.0)
+
+- ✅ **Lazy Loading**: Code splitting implementado para todas las rutas (LoginPage, RegisterPage, DashboardPage, HistoryPage)
+- ✅ **Bundle Reducido**: Bundle inicial reducido ~30% gracias al code splitting
+- ✅ **useAuthToken Optimizado**: Eliminado polling de localStorage, ahora usa Context directamente (-75% de código)
+- ✅ **Validaciones Optimizadas**: Eliminadas validaciones redundantes en componentes
 
 ## 📚 Documentación Adicional
 

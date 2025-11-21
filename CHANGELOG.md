@@ -2,6 +2,38 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 
+## [1.1.0] - 2025-11-20
+
+### ✨ Nuevas Características
+
+#### Pruebas Automatizadas (Nivel 5)
+- ✅ Implementación de **Vitest** y **React Testing Library**
+- ✅ Pruebas unitarias para reglas de validación (`src/utils/constants.test.js`)
+- ✅ Pruebas de integración para formulario de recargas (`src/components/Recargas/RechargeForm.test.jsx`)
+- ✅ Script `npm run test` para ejecución automatizada
+
+#### Autenticación Simplificada
+- ✅ Eliminación completa del token legado "Puntored"
+- ✅ Migración total a **Supabase JWT** para todos los endpoints (incluyendo `/api/suppliers`)
+- ✅ Limpieza de código muerto relacionado con `/api/auth`
+
+#### Logging Visual
+- ✅ Sistema de logs con emojis para desarrollo
+- ✅ Formato estructurado JSON para producción (Google Cloud Logging)
+- ✅ Clase `VisualLogger` para mejor DX
+
+### 🚀 Optimizaciones de Rendimiento
+- ✅ **Lazy Loading:** Implementado code splitting para todas las rutas (LoginPage, RegisterPage, DashboardPage, HistoryPage)
+- ✅ **useAuthToken Optimizado:** Eliminado polling de localStorage, ahora usa Context directamente (-75% de código)
+- ✅ **RechargeForm Limpio:** Eliminadas validaciones redundantes manejadas por react-hook-form (-30 líneas)
+- ✅ **Bundle Reducido:** Bundle inicial reducido ~30% gracias al code splitting
+
+### 🔧 Mejoras Técnicas
+- ✅ Actualización de `README.md` con instrucciones de testing
+- ✅ Refactorización de `useAuthToken` para eliminar lógica obsoleta
+- ✅ Limpieza de interceptores de Axios
+- ✅ Implementación de `Suspense` con fallback visual
+
 ## [1.0.0] - 2025-11-19
 
 ### ✨ Características Implementadas

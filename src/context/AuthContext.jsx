@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../services/supabase'
-import { apiService } from '../services/api'
 import { logger, logAuth } from '../utils/logger'
 
 const AuthContext = createContext({})
@@ -10,25 +9,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   /**
-   * Refresca el token de Puntored para operaciones de negocio
-   * Memoizado con useCallback para evitar recreaciones innecesarias
-   */
-  const refreshPuntoredToken = useCallback(async () => {
-    try {
-      const token = await apiService.getAuthToken()
-      localStorage.setItem('puntoredToken', token)
-      logger.log('Token de Puntored actualizado')
-      logAuth('token-refreshed', { tokenType: 'puntored', success: true })
-    } catch (error) {
-      logger.error('Error obteniendo token de Puntored:', error, {
-        category: 'auth-token-refresh',
-        tokenType: 'puntored',
-      })
-      logAuth('token-refresh-failed', { tokenType: 'puntored', error: error.message })
-    }
-  }, [])
-
-  /**
    * Verifica la sesión actual del usuario
    * Memoizado con useCallback para evitar recreaciones innecesarias
    */
@@ -36,12 +16,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
-      
+
       if (session?.user) {
         // Guardar JWT de Supabase (contiene userId y email)
         localStorage.setItem('supabaseToken', session.access_token)
         logAuth('session-checked', { hasSession: true, userId: session.user.id })
-        await refreshPuntoredToken()
       } else {
         logAuth('session-checked', { hasSession: false })
       }
@@ -52,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false)
     }
-  }, [refreshPuntoredToken])
+  }, [])
 
   /**
    * Cierra la sesión del usuario
@@ -65,7 +44,7 @@ export const AuthProvider = ({ children }) => {
     try {
       // Verificar si hay sesión antes de intentar cerrarla
       const { data: { session } } = await supabase.auth.getSession()
-      
+
       // Solo intentar cerrar sesión en Supabase si hay una sesión activa
       if (session) {
         const { error } = await supabase.auth.signOut()
@@ -94,7 +73,6 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Siempre limpiar el estado local, incluso si falla el signOut de Supabase
       // El backend usa JWT stateless, así que no necesita endpoint de logout
-      localStorage.removeItem('puntoredToken')
       localStorage.removeItem('supabaseToken')
       setUser(null)
     }
@@ -108,9 +86,9 @@ export const AuthProvider = ({ children }) => {
   const refreshSupabaseSession = useCallback(async () => {
     try {
       const { data: { session }, error } = await supabase.auth.refreshSession()
-      
+
       if (error) throw error
-      
+
       if (session?.access_token) {
         localStorage.setItem('supabaseToken', session.access_token)
         setUser(session.user)
@@ -118,7 +96,7 @@ export const AuthProvider = ({ children }) => {
         logAuth('supabase-session-refreshed', { success: true, userId: session.user.id })
         return session.access_token
       }
-      
+
       return null
     } catch (error) {
       logger.error('Error refrescando sesión de Supabase:', error, {
@@ -134,8 +112,8 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async (email, password) => {
     try {
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           emailRedirectTo: window.location.origin,
@@ -174,23 +152,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Verificar sesión al cargar
     checkUser()
-    
+
     // Escuchar cambios de autenticación
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setUser(session?.user ?? null)
-        
+
         if (session?.user) {
           // Guardar JWT de Supabase (contiene userId y email)
           localStorage.setItem('supabaseToken', session.access_token)
-          // Obtener token de Puntored para suppliers
-          await refreshPuntoredToken()
         } else {
           // Limpiar tokens cuando no hay sesión
-          localStorage.removeItem('puntoredToken')
           localStorage.removeItem('supabaseToken')
         }
-        
+
         setLoading(false)
       }
     )
@@ -198,7 +173,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       authListener?.subscription.unsubscribe()
     }
-  }, [checkUser, refreshPuntoredToken])
+  }, [checkUser])
 
   const value = {
     user,
@@ -206,7 +181,6 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signOut,
-    refreshPuntoredToken,
     refreshSupabaseSession,
   }
 
@@ -227,4 +201,3 @@ export const useAuth = () => {
   }
   return context
 }
-

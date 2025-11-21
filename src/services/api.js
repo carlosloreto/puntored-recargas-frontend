@@ -24,26 +24,24 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   // Agregar timestamp para medir duración de la petición
   config.metadata = { startTime: Date.now() }
-  
-  const puntoredToken = localStorage.getItem('puntoredToken')
+
   const supabaseToken = localStorage.getItem('supabaseToken')  // JWT de Supabase
-  
-  // Determinar qué token usar según el endpoint
-  const needsSupabaseAuth = config.url.includes('/transactions') || config.url.includes('/recharges')
-  const needsPuntoredAuth = config.url.includes('/suppliers') || config.url.includes('/auth')
-  
-  if (needsSupabaseAuth && supabaseToken) {
-    // Para recharges y transactions: JWT de Supabase
+
+  // Todos los endpoints protegidos ahora usan JWT de Supabase
+  // - /transactions
+  // - /recharges
+  // - /suppliers
+  const needsAuth = config.url.includes('/transactions') ||
+    config.url.includes('/recharges') ||
+    config.url.includes('/suppliers')
+
+  if (needsAuth && supabaseToken) {
     config.headers.Authorization = `Bearer ${supabaseToken}`
     logApi('request', config.url, { auth: 'Supabase JWT', method: config.method })
-  } else if (needsPuntoredAuth && puntoredToken) {
-    // Para suppliers: Token de Puntored
-    config.headers.Authorization = puntoredToken
-    logApi('request', config.url, { auth: 'Puntored Token', method: config.method })
   } else {
     logApi('request', config.url, { auth: 'none', method: config.method })
   }
-  
+
   return config
 }, (error) => {
   logger.error('Error en request interceptor:', error, {
@@ -75,7 +73,7 @@ api.interceptors.response.use(
     const startTime = response.config.metadata?.startTime
     if (startTime) {
       const duration = Date.now() - startTime
-      
+
       // Log si la respuesta es lenta (> 2 segundos)
       if (duration > 2000) {
         logger.warn('Respuesta lenta de API', {
@@ -86,7 +84,7 @@ api.interceptors.response.use(
           status: response.status,
         })
       }
-      
+
       // Log estructurado de respuesta exitosa
       if (import.meta.env.PROD) {
         logApi('response', response.config.url, {
@@ -96,14 +94,14 @@ api.interceptors.response.use(
         })
       }
     }
-    
+
     return response
   },
   async (error) => {
     const originalRequest = error.config
     const startTime = originalRequest?.metadata?.startTime
     const duration = startTime ? Date.now() - startTime : null
-    
+
     // Error de red/conexión (sin respuesta del servidor)
     if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
       logger.error('Error de conexión a la API', error, {
@@ -115,7 +113,7 @@ api.interceptors.response.use(
       })
       return Promise.reject(new Error('Error de conexión. Verifica tu internet.'))
     }
-    
+
     // Error de timeout
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       logger.error('Request timeout:', originalRequest?.url, {
@@ -149,7 +147,7 @@ api.interceptors.response.use(
         // Intentar refrescar el JWT de Supabase
         const { supabase } = await import('./supabase')
         const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
-        
+
         if (refreshError || !session) {
           throw new Error('No se pudo refrescar la sesión')
         }
@@ -157,9 +155,9 @@ api.interceptors.response.use(
         // Actualizar token en localStorage
         const newToken = session.access_token
         localStorage.setItem('supabaseToken', newToken)
-        
+
         logger.log('Token refrescado automáticamente')
-        
+
         // Log estructurado del refresh exitoso
         if (import.meta.env.PROD) {
           logApi('refresh-token', 'supabase', {
@@ -167,37 +165,36 @@ api.interceptors.response.use(
             retryUrl: originalRequest.url,
           })
         }
-        
+
         // Actualizar el header de la petición original
         originalRequest.headers.Authorization = `Bearer ${newToken}`
-        
+
         // Procesar la cola de peticiones pendientes
         processQueue(null, newToken)
-        
+
         isRefreshing = false
-        
+
         // Reintentar la petición original
         return api(originalRequest)
       } catch (refreshError) {
         // Si falla el refresh, limpiar todo
         processQueue(refreshError, null)
         isRefreshing = false
-        
+
         logger.error('Error al refrescar token:', refreshError, {
           category: 'auth-refresh-failed',
           originalUrl: originalRequest.url,
           redirectToLogin: true,
         })
-        
+
         // Limpiar TODOS los tokens
-        localStorage.removeItem('puntoredToken')
         localStorage.removeItem('supabaseToken')
-        
+
         // Redirigir al login
         if (typeof window !== 'undefined') {
           window.location.href = '/login'
         }
-        
+
         return Promise.reject(refreshError)
       }
     }
@@ -211,19 +208,13 @@ api.interceptors.response.use(
       method: originalRequest?.method,
       responseData: error.response?.data,
     })
-    
+
     return Promise.reject(error)
   }
 )
 
 // Servicios
 export const apiService = {
-  // Obtener token de Puntored
-  getAuthToken: async () => {
-    const response = await api.post('/api/auth')
-    return response.data.token
-  },
-
   // Obtener proveedores
   getSuppliers: async () => {
     const response = await api.get('/api/suppliers')

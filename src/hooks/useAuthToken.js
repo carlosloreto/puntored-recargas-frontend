@@ -5,18 +5,16 @@ import { useAuth } from '../context/AuthContext'
  * Custom hook para obtener tokens de autenticación de forma segura
  * Espera a que los tokens estén disponibles antes de permitir llamadas a la API
  * 
- * @returns {Object} { puntoredToken, supabaseToken, isReady, error }
+ * @returns {Object} { supabaseToken, isReady, error }
  */
 export const useAuthToken = () => {
   const { user } = useAuth()
-  const [puntoredToken, setPuntoredToken] = useState(null)
   const [supabaseToken, setSupabaseToken] = useState(null)
   const [isReady, setIsReady] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!user) {
-      setPuntoredToken(null)
       setSupabaseToken(null)
       setIsReady(false)
       return
@@ -29,12 +27,10 @@ export const useAuthToken = () => {
     // Intentar obtener tokens del localStorage
     const checkTokens = () => {
       try {
-        const pToken = localStorage.getItem('puntoredToken')
         const sToken = localStorage.getItem('supabaseToken')
-        
-        if (pToken && sToken) {
-          // ✅ Tokens encontrados
-          setPuntoredToken(pToken)
+
+        if (sToken) {
+          // ✅ Token encontrado
           setSupabaseToken(sToken)
           setIsReady(true)
           setError(null)
@@ -44,7 +40,7 @@ export const useAuthToken = () => {
           timeoutId = setTimeout(checkTokens, 100)
         } else {
           // ❌ Se agotaron los reintentos
-          setError(new Error('Tokens no disponibles después de múltiples intentos'))
+          setError(new Error('Token no disponible después de múltiples intentos'))
           setIsReady(false)
         }
       } catch (err) {
@@ -64,7 +60,6 @@ export const useAuthToken = () => {
   }, [user])
 
   return {
-    puntoredToken,
     supabaseToken,
     isReady,
     error,

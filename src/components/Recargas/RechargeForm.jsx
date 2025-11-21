@@ -17,8 +17,8 @@ export const RechargeForm = ({ onSuccess }) => {
   const [selectedSupplier, setSelectedSupplier] = useState('')
   const [phoneLength, setPhoneLength] = useState(0)
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm()
-  const { puntoredToken, isReady } = useAuthToken()
-  
+  const { isReady } = useAuthToken()
+
   const phoneNumber = watch('phoneNumber')
 
   useEffect(() => {
@@ -41,10 +41,10 @@ export const RechargeForm = ({ onSuccess }) => {
 
   useEffect(() => {
     // Solo cargar suppliers cuando el token esté listo (una sola vez)
-    if (isReady && puntoredToken) {
+    if (isReady) {
       loadSuppliers()
     }
-  }, [isReady, puntoredToken, loadSuppliers])
+  }, [isReady, loadSuppliers])
 
   const handleSupplierClick = (supplierId) => {
     setSelectedSupplier(supplierId)
@@ -93,10 +93,10 @@ export const RechargeForm = ({ onSuccess }) => {
       })
       return
     }
-    
+
     setLoading(true)
     const startTime = Date.now()
-    
+
     try {
       logger.info('Iniciando proceso de recarga', {
         category: 'recharge-submit',
@@ -110,7 +110,7 @@ export const RechargeForm = ({ onSuccess }) => {
         amount,
         supplierId: selectedSupplier,
       })
-      
+
       const duration = Date.now() - startTime
       logger.info('Recarga exitosa', {
         category: 'recharge-success',
@@ -120,13 +120,13 @@ export const RechargeForm = ({ onSuccess }) => {
         supplierId: selectedSupplier,
         duration,
       })
-      
+
       // Limpiar caché de transacciones para que se actualicen cuando vaya al historial
       clearTransactionsCache()
       logger.info('Caché de transacciones limpiado después de recarga exitosa', {
         category: 'transactions-cache',
       })
-      
+
       toast.success('¡Recarga exitosa!')
       reset()
       setSelectedSupplier('')
@@ -145,9 +145,9 @@ export const RechargeForm = ({ onSuccess }) => {
         status: error.response?.status,
         responseData: error.response?.data,
       })
-      
+
       const errorData = error.response?.data
-      
+
       if (errorData?.errors && Array.isArray(errorData.errors)) {
         // Mostrar todos los errores de validación
         errorData.errors.forEach(err => toast.error(err))
@@ -179,7 +179,7 @@ export const RechargeForm = ({ onSuccess }) => {
         </div>
         <h2 className="text-2xl font-bold text-gray-900">Nueva Recarga</h2>
       </div>
-      
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Número de teléfono */}
         <div>

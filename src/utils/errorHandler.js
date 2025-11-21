@@ -39,7 +39,6 @@ export const handleApiError = (error, defaultMessage = 'Ha ocurrido un error') =
       // No autorizado
       toast.error('Sesión expirada. Por favor inicia sesión nuevamente.')
       // Limpiar tokens
-      localStorage.removeItem('puntoredToken')
       // Podría redirigir al login aquí
       break
 

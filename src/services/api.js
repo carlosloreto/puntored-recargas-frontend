@@ -216,24 +216,69 @@ export const apiService = {
   // Obtener proveedores
   getSuppliers: async () => {
     const response = await api.get('/api/suppliers')
+
+    // Validar que la respuesta sea un array
+    if (!Array.isArray(response.data)) {
+      logger.error('Respuesta inválida de /api/suppliers', {
+        category: 'api-validation-error',
+        receivedType: typeof response.data,
+        data: response.data,
+      })
+      throw new Error('El servidor retornó datos inválidos para suppliers')
+    }
+
     return response.data
   },
 
   // Crear recarga
   createRecharge: async (data) => {
     const response = await api.post('/api/recharges', data)
+
+    // Validar que la respuesta tenga la estructura esperada
+    if (!response.data || typeof response.data !== 'object') {
+      logger.error('Respuesta inválida de /api/recharges', {
+        category: 'api-validation-error',
+        receivedType: typeof response.data,
+        data: response.data,
+      })
+      throw new Error('El servidor retornó datos inválidos para la recarga')
+    }
+
     return response.data
   },
 
   // Obtener historial
   getTransactions: async () => {
     const response = await api.get('/api/transactions')
+
+    // Validar que la respuesta sea un array
+    if (!Array.isArray(response.data)) {
+      logger.error('Respuesta inválida de /api/transactions', {
+        category: 'api-validation-error',
+        receivedType: typeof response.data,
+        data: response.data,
+      })
+      throw new Error('El servidor retornó datos inválidos para transacciones')
+    }
+
     return response.data
   },
 
   // Obtener por teléfono
   getTransactionsByPhone: async (phoneNumber) => {
     const response = await api.get(`/api/transactions/phone/${phoneNumber}`)
+
+    // Validar que la respuesta sea un array
+    if (!Array.isArray(response.data)) {
+      logger.error('Respuesta inválida de /api/transactions/phone', {
+        category: 'api-validation-error',
+        receivedType: typeof response.data,
+        phoneNumber,
+        data: response.data,
+      })
+      throw new Error('El servidor retornó datos inválidos para transacciones por teléfono')
+    }
+
     return response.data
   },
 }

@@ -69,19 +69,36 @@ export const getTransactions = async () => {
 /**
  * Fuerza la recarga de transacciones (para el botón "Actualizar")
  * Limpia el caché y carga de nuevo
+ * Si falla, restaura el caché anterior para evitar pérdida de datos
  * @returns {Promise<Array>} Lista de transacciones actualizadas
  */
 export const refreshTransactions = async () => {
+  // Guardar caché anterior como fallback
+  const previousCache = transactionsCache
+
   // Limpiar caché antes de cargar
   transactionsCache = null
   loadingPromise = null
 
   logger.info('Forzando recarga de transacciones', {
     category: 'transactions-cache',
+    hadPreviousCache: !!previousCache,
   })
 
-  // Cargar de nuevo
-  return getTransactions()
+  try {
+    // Cargar de nuevo
+    return await getTransactions()
+  } catch (error) {
+    // Si falla, restaurar caché anterior
+    if (previousCache) {
+      transactionsCache = previousCache
+      logger.warn('Error al refrescar transacciones, restaurando caché anterior', {
+        category: 'transactions-cache-fallback',
+        cachedCount: previousCache.length,
+      })
+    }
+    throw error
+  }
 }
 
 /**

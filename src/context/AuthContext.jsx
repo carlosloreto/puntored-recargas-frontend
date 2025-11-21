@@ -155,29 +155,43 @@ export const AuthProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    // Verificar sesión al cargar
-    checkUser()
+    let mounted = true
+    let authListener = null
 
-    // Escuchar cambios de autenticación
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
+    const initAuth = async () => {
+      // Esperar a que checkUser termine antes de configurar el listener
+      await checkUser()
 
-        if (session?.user) {
-          // Guardar JWT de Supabase (contiene userId y email)
-          localStorage.setItem(STORAGE_KEYS.SUPABASE_TOKEN, session.access_token)
-          setSupabaseToken(session.access_token)
-        } else {
-          // Limpiar tokens cuando no hay sesión
-          localStorage.removeItem(STORAGE_KEYS.SUPABASE_TOKEN)
-          setSupabaseToken(null)
+      if (!mounted) return
+
+      // Ahora configurar el listener de cambios de autenticación
+      const { data } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return
+
+          setUser(session?.user ?? null)
+
+          if (session?.user) {
+            // Guardar JWT de Supabase (contiene userId y email)
+            localStorage.setItem(STORAGE_KEYS.SUPABASE_TOKEN, session.access_token)
+            setSupabaseToken(session.access_token)
+          } else {
+            // Limpiar tokens cuando no hay sesión
+            localStorage.removeItem(STORAGE_KEYS.SUPABASE_TOKEN)
+            setSupabaseToken(null)
+          }
+
+          setLoading(false)
         }
+      )
 
-        setLoading(false)
-      }
-    )
+      authListener = data
+    }
+
+    initAuth()
 
     return () => {
+      mounted = false
       authListener?.subscription.unsubscribe()
     }
   }, [checkUser])

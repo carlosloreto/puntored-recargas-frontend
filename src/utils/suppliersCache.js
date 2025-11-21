@@ -74,6 +74,7 @@ export const getSuppliers = async () => {
 
 /**
  * Limpia el caché de suppliers (útil para forzar recarga)
+ * Si falla la recarga, restaura el caché anterior
  */
 export const clearSuppliersCache = () => {
   suppliersCache = null
@@ -82,6 +83,30 @@ export const clearSuppliersCache = () => {
   logger.info('Caché de suppliers limpiado', {
     category: 'suppliers-cache',
   })
+}
+
+/**
+ * Fuerza la recarga de suppliers
+ * Si falla, restaura el caché anterior
+ */
+export const refreshSuppliers = async () => {
+  const previousCache = suppliersCache
+
+  clearSuppliersCache()
+
+  try {
+    return await getSuppliers()
+  } catch (error) {
+    if (previousCache) {
+      suppliersCache = previousCache
+      lastLoadTime = Date.now()
+      logger.warn('Error al refrescar suppliers, restaurando caché anterior', {
+        category: 'suppliers-cache-fallback',
+        cachedCount: previousCache.length,
+      })
+    }
+    throw error
+  }
 }
 
 /**

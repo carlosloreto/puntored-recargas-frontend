@@ -2,7 +2,29 @@
 
 Sistema de recargas móviles para Puntored. Aplicación React con autenticación JWT, gestión de recargas y historial de transacciones.
 
-## 🚀 Características
+## � Tabla de Contenido
+
+- [🚀 Características](#-características)
+- [📋 Requisitos](#-requisitos)
+- [🔧 Instalación](#-instalación)
+- [🏗️ Build para Producción](#️-build-para-producción)
+- [📁 Estructura del Proyecto](#-estructura-del-proyecto)
+- [🔐 Autenticación](#-autenticación)
+- [🛠️ Tecnologías](#️-tecnologías)
+- [🔒 Seguridad](#-seguridad)
+- [🐛 Scripts Disponibles](#-scripts-disponibles)
+- [🧪 Pruebas Automatizadas](#-pruebas-automatizadas)
+- [📝 Notas Importantes](#-notas-importantes)
+- [🚀 Despliegue](#-despliegue)
+- [🔍 Características Técnicas Destacadas](#-características-técnicas-destacadas)
+- [🚀 Optimizaciones de Rendimiento](#-optimizaciones-de-rendimiento-v110)
+- [📚 Documentación Adicional](#-documentación-adicional)
+- [🤝 Contribución](#-contribución)
+- [📄 Licencia](#-licencia)
+- [📧 Contacto](#-contacto)
+
+
+## �🚀 Características
 
 - ✅ Autenticación segura con Supabase (JWT)
 - ✅ Refresh automático de JWT sin intervención del usuario

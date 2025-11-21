@@ -27,18 +27,18 @@ export const Login = () => {
 
     setLoading(true)
     const startTime = Date.now()
-    
+
     try {
       logAuth('login-attempt', { email: data.email })
       await signIn(data.email, data.password)
-      
+
       const duration = Date.now() - startTime
       logger.info('Login exitoso', {
         category: 'auth-login',
         duration,
         email: data.email,
       })
-      
+
       toast.success('¡Bienvenido!')
       navigate('/')
     } catch (error) {
@@ -49,8 +49,8 @@ export const Login = () => {
         email: data.email,
         errorMessage: error.message,
       })
-      logAuth('login-failed', { 
-        email: data.email, 
+      logAuth('login-failed', {
+        email: data.email,
         error: error.message,
         duration,
       })
@@ -64,8 +64,8 @@ export const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-purple-50 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-4">
-            <LogIn className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4 shadow-sm p-4">
+            <img src="/puntored-logo-192.png" alt="Puntored" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900">Iniciar Sesión</h2>
           <p className="text-gray-600 mt-2">Accede a tu cuenta de Puntored Recargas</p>

@@ -15,15 +15,11 @@ export const RechargeForm = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false)
   const [loadingSuppliers, setLoadingSuppliers] = useState(true)
   const [selectedSupplier, setSelectedSupplier] = useState('')
-  const [phoneLength, setPhoneLength] = useState(0)
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm()
   const { isReady } = useAuthToken()
 
   const phoneNumber = watch('phoneNumber')
-
-  useEffect(() => {
-    setPhoneLength(phoneNumber?.length || 0)
-  }, [phoneNumber])
+  const phoneLength = phoneNumber?.length || 0
 
   const loadSuppliers = useCallback(async () => {
     try {
@@ -100,7 +96,6 @@ export const RechargeForm = ({ onSuccess }) => {
       toast.success('¡Recarga exitosa!')
       reset()
       setSelectedSupplier('')
-      setPhoneLength(0)
       onSuccess(result)
     } catch (error) {
       const duration = Date.now() - startTime
@@ -169,10 +164,6 @@ export const RechargeForm = ({ onSuccess }) => {
             type="tel"
             maxLength="10"
             {...register('phoneNumber', VALIDATION_RULES.phoneNumber)}
-            onInput={(e) => {
-              // Solo permitir números
-              e.target.value = e.target.value.replace(/[^0-9]/g, '')
-            }}
             placeholder="3001234567"
             className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#eb0b7f] focus:border-[#eb0b7f] transition text-lg"
           />
@@ -199,10 +190,6 @@ export const RechargeForm = ({ onSuccess }) => {
               type="text"
               inputMode="numeric"
               {...register('amount', VALIDATION_RULES.amount)}
-              onInput={(e) => {
-                // Solo permitir números
-                e.target.value = e.target.value.replace(/[^0-9]/g, '')
-              }}
               placeholder="10000"
               className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#eb0b7f] focus:border-[#eb0b7f] transition text-lg"
             />

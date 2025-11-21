@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { API_TIMEOUT } from '../utils/constants'
+import { API_TIMEOUT, STORAGE_KEYS } from '../utils/constants'
 import { logger, logApi } from '../utils/logger'
 
 const API_URL = import.meta.env.VITE_BACKEND_URL
@@ -25,7 +25,7 @@ api.interceptors.request.use((config) => {
   // Agregar timestamp para medir duración de la petición
   config.metadata = { startTime: Date.now() }
 
-  const supabaseToken = localStorage.getItem('supabaseToken')  // JWT de Supabase
+  const supabaseToken = localStorage.getItem(STORAGE_KEYS.SUPABASE_TOKEN)  // JWT de Supabase
 
   // Todos los endpoints protegidos ahora usan JWT de Supabase
   // - /transactions
@@ -154,7 +154,7 @@ api.interceptors.response.use(
 
         // Actualizar token en localStorage
         const newToken = session.access_token
-        localStorage.setItem('supabaseToken', newToken)
+        localStorage.setItem(STORAGE_KEYS.SUPABASE_TOKEN, newToken)
 
         logger.log('Token refrescado automáticamente')
 
@@ -188,12 +188,10 @@ api.interceptors.response.use(
         })
 
         // Limpiar TODOS los tokens
-        localStorage.removeItem('supabaseToken')
+        localStorage.removeItem(STORAGE_KEYS.SUPABASE_TOKEN)
 
-        // Redirigir al login
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login'
-        }
+        // Disparar evento para que AuthContext maneje el logout limpiamente
+        window.dispatchEvent(new Event('auth:logout'))
 
         return Promise.reject(refreshError)
       }

@@ -40,23 +40,23 @@ export const Register = () => {
 
     setLoading(true)
     const startTime = Date.now()
-    
+
     try {
       logAuth('register-attempt', { email: data.email })
-      
+
       // Registrar usuario
       await signUp(data.email, data.password)
-      
+
       // Auto-login después del registro
       await signIn(data.email, data.password)
-      
+
       const duration = Date.now() - startTime
       logger.info('Registro exitoso', {
         category: 'auth-register',
         duration,
         email: data.email,
       })
-      
+
       toast.success('¡Cuenta creada exitosamente!')
       navigate('/')
     } catch (error) {
@@ -67,12 +67,12 @@ export const Register = () => {
         email: data.email,
         errorMessage: error.message,
       })
-      logAuth('register-failed', { 
-        email: data.email, 
+      logAuth('register-failed', {
+        email: data.email,
         error: error.message,
         duration,
       })
-      
+
       if (error.message.includes('already registered')) {
         toast.error('Este correo ya está registrado')
       } else {
@@ -87,8 +87,8 @@ export const Register = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-purple-50 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-4">
-            <UserPlus className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4 shadow-sm p-4">
+            <img src="/puntored-logo-192.png" alt="Puntored" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900">Crear Cuenta</h2>
           <p className="text-gray-600 mt-2">Regístrate en Puntored Recargas</p>

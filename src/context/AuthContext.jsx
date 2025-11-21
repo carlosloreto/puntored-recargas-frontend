@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../services/supabase'
 import { logger, logAuth } from '../utils/logger'
+import { STORAGE_KEYS } from '../utils/constants'
 
 const AuthContext = createContext({})
 
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
 
       if (session?.user) {
         // Guardar JWT de Supabase (contiene userId y email)
-        localStorage.setItem('supabaseToken', session.access_token)
+        localStorage.setItem(STORAGE_KEYS.SUPABASE_TOKEN, session.access_token)
         setSupabaseToken(session.access_token)
         logAuth('session-checked', { hasSession: true, userId: session.user.id })
       } else {
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Siempre limpiar el estado local, incluso si falla el signOut de Supabase
       // El backend usa JWT stateless, así que no necesita endpoint de logout
-      localStorage.removeItem('supabaseToken')
+      localStorage.removeItem(STORAGE_KEYS.SUPABASE_TOKEN)
       setSupabaseToken(null)
       setUser(null)
     }
@@ -93,7 +94,7 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error
 
       if (session?.access_token) {
-        localStorage.setItem('supabaseToken', session.access_token)
+        localStorage.setItem(STORAGE_KEYS.SUPABASE_TOKEN, session.access_token)
         setSupabaseToken(session.access_token)
         setUser(session.user)
         logger.log('JWT de Supabase actualizado')
@@ -164,11 +165,11 @@ export const AuthProvider = ({ children }) => {
 
         if (session?.user) {
           // Guardar JWT de Supabase (contiene userId y email)
-          localStorage.setItem('supabaseToken', session.access_token)
+          localStorage.setItem(STORAGE_KEYS.SUPABASE_TOKEN, session.access_token)
           setSupabaseToken(session.access_token)
         } else {
           // Limpiar tokens cuando no hay sesión
-          localStorage.removeItem('supabaseToken')
+          localStorage.removeItem(STORAGE_KEYS.SUPABASE_TOKEN)
           setSupabaseToken(null)
         }
 
@@ -180,6 +181,20 @@ export const AuthProvider = ({ children }) => {
       authListener?.subscription.unsubscribe()
     }
   }, [checkUser])
+
+  // Escuchar evento de logout forzado desde api.js
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      logger.warn('Logout forzado recibido desde API')
+      signOut()
+    }
+
+    window.addEventListener('auth:logout', handleAuthLogout)
+
+    return () => {
+      window.removeEventListener('auth:logout', handleAuthLogout)
+    }
+  }, [signOut])
 
   const value = {
     user,

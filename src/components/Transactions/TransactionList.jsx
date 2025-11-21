@@ -1,17 +1,18 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getTransactions, refreshTransactions } from '../../utils/transactionsCache'
 import { TransactionCard } from './TransactionCard'
 import { TransactionFilters } from './TransactionFilters'
 import { logger } from '../../utils/logger'
+import { PAGINATION_OPTIONS } from '../../utils/constants'
 import { RefreshCw, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export const TransactionList = () => {
   const [transactions, setTransactions] = useState([])
-  const [filteredTransactions, setFilteredTransactions] = useState([])
-  const [loading, setLoading] = useState(true) // Cargar automáticamente la primera vez
+  const [filters, setFilters] = useState({}) // Nuevo estado para filtros
+  const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
@@ -22,8 +23,7 @@ export const TransactionList = () => {
       // Usa el caché - solo carga la primera vez, luego usa caché
       const data = await getTransactions()
       setTransactions(data)
-      setFilteredTransactions(data)
-      setCurrentPage(1) // Reset a la primera página
+      setCurrentPage(1)
     } catch (error) {
       logger.error('Error cargando transacciones:', error, {
         category: 'transactions-load-error',
@@ -49,20 +49,19 @@ export const TransactionList = () => {
       logger.info('Actualizando transacciones (forzar recarga)', {
         category: 'transactions-refresh',
       })
-      
+
       // Forzar recarga (limpia caché y carga de nuevo)
       const data = await refreshTransactions()
       const duration = Date.now() - startTime
-      
+
       logger.info('Transacciones actualizadas exitosamente', {
         category: 'transactions-refresh',
         count: data?.length || 0,
         duration,
       })
-      
+
       setTransactions(data)
-      setFilteredTransactions(data)
-      setCurrentPage(1) // Reset a la primera página
+      setCurrentPage(1)
       toast.success('Historial actualizado')
     } catch (error) {
       const duration = Date.now() - startTime
@@ -79,41 +78,47 @@ export const TransactionList = () => {
     }
   }
 
-  const handleFilter = (filters) => {
-    let filtered = [...transactions]
+  const handleFilter = (newFilters) => {
+    setFilters(newFilters)
+    setCurrentPage(1) // Reset a la primera página cuando se filtran
+  }
+
+  // Filtrado derivado (useMemo)
+  // Esto evita problemas de sincronización de estado
+  const filteredTransactions = useMemo(() => {
+    let result = [...transactions]
 
     // Filtrar por número de teléfono
     if (filters.phoneNumber) {
-      filtered = filtered.filter(t => 
+      result = result.filter(t =>
         t.phoneNumber.includes(filters.phoneNumber)
       )
     }
 
     // Filtrar por estado
     if (filters.status) {
-      filtered = filtered.filter(t => t.status === filters.status)
+      result = result.filter(t => t.status === filters.status)
     }
 
     // Filtrar por proveedor
     if (filters.supplierId) {
-      filtered = filtered.filter(t => t.supplierId === filters.supplierId)
+      result = result.filter(t => t.supplierId === filters.supplierId)
     }
 
     // Filtrar por rango de fechas
     if (filters.dateFrom) {
       const fromDate = new Date(filters.dateFrom)
-      filtered = filtered.filter(t => new Date(t.createdAt) >= fromDate)
+      result = result.filter(t => new Date(t.createdAt) >= fromDate)
     }
 
     if (filters.dateTo) {
       const toDate = new Date(filters.dateTo)
       toDate.setHours(23, 59, 59, 999) // Incluir todo el día
-      filtered = filtered.filter(t => new Date(t.createdAt) <= toDate)
+      result = result.filter(t => new Date(t.createdAt) <= toDate)
     }
 
-    setFilteredTransactions(filtered)
-    setCurrentPage(1) // Reset a la primera página cuando se filtran
-  }
+    return result
+  }, [transactions, filters])
 
   // Calcular paginación
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
@@ -129,7 +134,7 @@ export const TransactionList = () => {
   const getPageNumbers = () => {
     const pages = []
     const maxPagesToShow = 5
-    
+
     if (totalPages <= maxPagesToShow) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i)
@@ -143,7 +148,7 @@ export const TransactionList = () => {
         pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages)
       }
     }
-    
+
     return pages
   }
 
@@ -157,7 +162,7 @@ export const TransactionList = () => {
             Historial de Transacciones
           </h2>
         </div>
-        
+
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -213,7 +218,7 @@ export const TransactionList = () => {
                   <span>
                     Mostrando <span className="font-medium text-gray-900">{startIndex + 1}</span> - <span className="font-medium text-gray-900">{Math.min(endIndex, filteredTransactions.length)}</span> de <span className="font-medium text-gray-900">{filteredTransactions.length}</span>
                   </span>
-                  
+
                   <div className="relative">
                     <select
                       value={itemsPerPage}
@@ -222,11 +227,11 @@ export const TransactionList = () => {
                         setCurrentPage(1)
                       }}
                       className="px-3 py-1.5 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white cursor-pointer"
+                      aria-label="Transacciones por página"
                     >
-                      <option value={5}>5 por página</option>
-                      <option value={10}>10 por página</option>
-                      <option value={20}>20 por página</option>
-                      <option value={50}>50 por página</option>
+                      {PAGINATION_OPTIONS.map(option => (
+                        <option key={option} value={option}>{option} por página</option>
+                      ))}
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -243,6 +248,7 @@ export const TransactionList = () => {
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    aria-label="Página anterior"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span className="hidden sm:inline">Anterior</span>
@@ -259,11 +265,10 @@ export const TransactionList = () => {
                         <button
                           key={page}
                           onClick={() => goToPage(page)}
-                          className={`px-3 py-2 rounded-lg transition ${
-                            currentPage === page
-                              ? 'bg-primary text-white font-medium'
-                              : 'border border-gray-300 hover:bg-gray-50'
-                          }`}
+                          className={`px-3 py-2 rounded-lg transition ${currentPage === page
+                            ? 'bg-primary text-white font-medium'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                            }`}
                         >
                           {page}
                         </button>
@@ -276,6 +281,7 @@ export const TransactionList = () => {
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    aria-label="Página siguiente"
                   >
                     <span className="hidden sm:inline">Siguiente</span>
                     <ChevronRight className="w-4 h-4" />

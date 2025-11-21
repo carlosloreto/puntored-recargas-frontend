@@ -50,3 +50,9 @@ export const TRANSACTION_STATUS = {
 export const API_TIMEOUT = 15000 // 15 segundos
 export const AUTH_TIMEOUT = 10000 // 10 segundos para autenticación
 
+export const STORAGE_KEYS = {
+  SUPABASE_TOKEN: 'supabaseToken',
+}
+
+export const PAGINATION_OPTIONS = [5, 10, 20, 50]
+

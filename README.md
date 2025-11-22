@@ -2,7 +2,7 @@
 
 Sistema de recargas móviles para Puntored. Aplicación React con autenticación JWT, gestión de recargas y historial de transacciones.
 
-## � Tabla de Contenido
+## 📚 Tabla de Contenido
 
 - [🚀 Características](#-características)
 - [📋 Requisitos](#-requisitos)
@@ -24,7 +24,7 @@ Sistema de recargas móviles para Puntored. Aplicación React con autenticación
 - [📧 Contacto](#-contacto)
 
 
-## �🚀 Características
+## 🚀 Características
 
 - ✅ Autenticación segura con Supabase (JWT)
 - ✅ Refresh automático de JWT sin intervención del usuario
@@ -207,7 +207,24 @@ npm run test
 
 ## 🚀 Despliegue
 
-### Vercel (Recomendado)
+### Google Cloud Run (Recomendado) ⭐
+
+Este proyecto está optimizado para Google Cloud Run con buildpacks.
+
+1. **Configurar Cloud Build:**
+   ```bash
+   gcloud builds submit --config cloudbuild.yaml \
+     --substitutions=_SERVICE_NAME=puntored-recargas-frontend,_VITE_BACKEND_URL=https://your-api.run.app,_VITE_SUPABASE_URL=https://your-project.supabase.co,_VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+
+2. **Variables de entorno:**
+   - Las variables se configuran en `cloudbuild.yaml` como substitutions
+   - No se requiere `.env.production` (se maneja via Cloud Build)
+
+3. **Deploy automático:**
+   - Configura un trigger en Cloud Build para deploy automático en cada push a `main`
+
+### Vercel
 
 1. Conecta tu repositorio a Vercel
 2. Configura las variables de entorno en Vercel:
@@ -215,20 +232,6 @@ npm run test
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 3. Deploy automático en cada push a main
-
-### Netlify
-
-1. Conecta tu repositorio a Netlify
-2. Build command: `npm run build`
-3. Publish directory: `dist`
-4. Agrega las variables de entorno en Netlify
-
-### Render / Railway
-
-1. Crear nuevo Static Site
-2. Build command: `npm run build`
-3. Publish directory: `dist`
-4. Configurar variables de entorno
 
 ## 🔍 Características Técnicas Destacadas
 
@@ -249,7 +252,6 @@ npm run test
 
 ## 📚 Documentación Adicional
 
-- `AUDITORIA_CODIGO.md` - Análisis completo de calidad de código
 - `.env.example` - Plantilla de variables de entorno
 - `public/logos/README.md` - Guía para agregar logos de operadores
 

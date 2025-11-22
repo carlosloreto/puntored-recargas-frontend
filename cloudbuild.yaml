@@ -1,38 +1,48 @@
 steps:
+  # DEBUG: Verificar que las substitution variables tengan valores
+  - name: "bash"
+    args:
+      - "-c"
+      - |
+        echo "=== VERIFICANDO SUBSTITUTION VARIABLES ==="
+        echo "VITE_BACKEND_URL: ${_VITE_BACKEND_URL}"
+        echo "VITE_SUPABASE_URL: ${_VITE_SUPABASE_URL}"
+        echo "VITE_SUPABASE_ANON_KEY: ${_VITE_SUPABASE_ANON_KEY}"
+        echo "============================================"
+
   # Instalar dependencias con variables de entorno
-  - name: 'gcr.io/cloud-builders/npm'
-    args: ['install']
+  - name: "gcr.io/cloud-builders/npm"
+    args: ["install"]
     env:
-      - 'VITE_BACKEND_URL=${_VITE_BACKEND_URL}'
-      - 'VITE_SUPABASE_URL=${_VITE_SUPABASE_URL}'
-      - 'VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY}'
-      - 'NODE_ENV=production'
+      - "VITE_BACKEND_URL=${_VITE_BACKEND_URL}"
+      - "VITE_SUPABASE_URL=${_VITE_SUPABASE_URL}"
+      - "VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY}"
+      - "NODE_ENV=production"
 
   # Build de la aplicación con variables de entorno disponibles en build time
-  - name: 'gcr.io/cloud-builders/npm'
-    args: ['run', 'build']
+  - name: "gcr.io/cloud-builders/npm"
+    args: ["run", "build"]
     env:
-      - 'VITE_BACKEND_URL=${_VITE_BACKEND_URL}'
-      - 'VITE_SUPABASE_URL=${_VITE_SUPABASE_URL}'
-      - 'VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY}'
-      - 'NODE_ENV=production'
+      - "VITE_BACKEND_URL=${_VITE_BACKEND_URL}"
+      - "VITE_SUPABASE_URL=${_VITE_SUPABASE_URL}"
+      - "VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY}"
+      - "NODE_ENV=production"
 
-  # Usar buildpacks para crear la imagen final con los archivos ya compilados
-  - name: 'gcr.io/k8s-skaffold/pack'
+  # Usar buildpacks para crear la imagen final
+  - name: "gcr.io/k8s-skaffold/pack"
     args:
-      - 'build'
-      - '${_SERVICE_NAME}'
-      - '--builder=gcr.io/buildpacks/builder:google-22'
-      - '--env'
-      - 'PORT=8080'
-    entrypoint: 'pack'
+      - "build"
+      - "gcr.io/${PROJECT_ID}/${_SERVICE_NAME}"
+      - "--builder=gcr.io/buildpacks/builder:google-22"
+      - "--env"
+      - "PORT=8080"
+    entrypoint: "pack"
 
-# Imagen a generar
+# Imagen a generar y pushear
 images:
-  - '${_SERVICE_NAME}'
+  - "gcr.io/${PROJECT_ID}/${_SERVICE_NAME}"
 
 # Opciones
 options:
-  machineType: 'E2_HIGHCPU_8'
+  machineType: "E2_HIGHCPU_8"
   logging: CLOUD_LOGGING_ONLY
-
